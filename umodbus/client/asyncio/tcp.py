@@ -11,7 +11,7 @@ from umodbus.client.tcp import (
 import umodbus.client.tcp as tcp
 
 
-async def recv_exactly(loop, sock, size, timeout):
+async def recv_exactly(reader, size, timeout):
     """ Use the function to read and return exactly number of bytes desired.
 
     https://docs.python.org/3/howto/sockets.html#socket-programming-howto for
@@ -28,7 +28,7 @@ async def recv_exactly(loop, sock, size, timeout):
     while recv_bytes < size:
         logger.debug(f'awaiting {size - recv_bytes}')
         async with async_timeout(timeout):
-            chunk = await loop.sock_recv(sock, size - recv_bytes)
+            chunk = await reader.read(size - recv_bytes)
         if len(chunk) == 0:  # when closed or empty
             break
         recv_bytes += len(chunk)
@@ -44,26 +44,29 @@ async def recv_exactly(loop, sock, size, timeout):
 
     return response
 
-async def send_message(adu, sock, loop=None, timeout=None):
+async def send_message(adu, reader, writer, timeout=None):
     """ Send ADU over socket to to server and return parsed response.
 
     :param adu: Request ADU.
     :param sock: Socket instance.
     :return: Parsed response from server.
     """
-    loop = loop or asyncio.get_event_loop()
     logger.debug(f'sending packet {adu!r}')
-    status = await loop.sock_sendall(sock, adu)
+    logger.debug(f'reader: {reader}')
+    logger.debug(f'writer: {writer}')
+    logger.debug(f'timeout: {timeout}')
+    status = writer.write(adu)
+    logger.debug(f'status: {status}')
 
     # Check exception ADU (which is shorter than all other responses) first.
     exception_adu_size = 9
     logger.debug('reading response header')
-    response_error_adu = await recv_exactly(loop, sock, exception_adu_size, timeout)
+    response_error_adu = await recv_exactly(reader, exception_adu_size, timeout)
     raise_for_exception_adu(response_error_adu)
     expected_response_size = \
         expected_response_pdu_size_from_request_pdu(adu[7:]) + 7
     logger.debug(f'reading response data ({expected_response_size} bytes)')
-    response_remainder = await recv_exactly(loop, sock,
+    response_remainder = await recv_exactly(reader,
                                             expected_response_size - exception_adu_size,
                                             timeout)
     response = response_error_adu + response_remainder
