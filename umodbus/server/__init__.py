@@ -3,7 +3,7 @@ try:
 except ImportError:
     from SocketServer import BaseRequestHandler
 from binascii import hexlify
-
+from logzero import logger
 from umodbus import log
 from umodbus.functions import create_function_from_request_pdu
 from umodbus.exceptions import ModbusError, ServerDeviceFailureError
@@ -24,6 +24,8 @@ def route(self, slave_ids=None, function_codes=None, addresses=None):
     :param addresses: A list or set with addresses.
     """
     def inner(f):
+        logger.debug(
+            f'route: {slave_ids}, {function_codes}, {addresses} => {f}')
         self.route_map.add_rule(f, slave_ids, function_codes, addresses)
         return f
 
@@ -35,6 +37,7 @@ class AbstractRequestHandler(BaseRequestHandler):
     incoming Modbus requests using the server's :attr:`route_map`.
 
     """
+
     def handle(self):
         try:
             while True:
@@ -42,15 +45,15 @@ class AbstractRequestHandler(BaseRequestHandler):
                     mbap_header = recv_exactly(self.request.recv, 7)
                     remaining = self.get_meta_data(mbap_header)['length'] - 1
                     request_pdu = recv_exactly(self.request.recv, remaining)
-                except ValueError:
+                except ValueError:  # FIXME
                     return
 
                 response_adu = self.process(mbap_header + request_pdu)
                 self.respond(response_adu)
         except:
             import traceback
-            log.exception('Error while handling request: {0}.'
-                          .format(traceback.print_exc()))
+            logger.exception('Error while handling request: {0}.'
+                             .format(traceback.print_exc()))
             raise
 
     def process(self, request_adu):
@@ -92,7 +95,7 @@ class AbstractRequestHandler(BaseRequestHandler):
             function_code = get_function_code_from_request_pdu(request_pdu)
             return pack_exception_pdu(function_code, e.error_code)
         except Exception as e:
-            log.exception('Could not handle request: {0}.'.format(e))
+            logger.exception('Could not handle request: {0}.'.format(e))
             function_code = get_function_code_from_request_pdu(request_pdu)
 
             return pack_exception_pdu(function_code,
@@ -103,6 +106,6 @@ class AbstractRequestHandler(BaseRequestHandler):
 
         :param response_adu: A bytearray containing the response of an ADU.
         """
-        log.info('--> {0} - {1}.'.format(self.client_address[0],
-                 hexlify(response_adu)))
+        logger.info('--> {0} - {1}.'.format(self.client_address[0],
+                                            hexlify(response_adu)))
         self.request.sendall(response_adu)
