@@ -24,8 +24,7 @@ def route(self, slave_ids=None, function_codes=None, addresses=None):
     :param addresses: A list or set with addresses.
     """
     def inner(f):
-        logger.debug(
-            f'route: {slave_ids}, {function_codes}, {addresses} => {f}')
+        logger.debug(f'add route {slave_ids}, {function_codes}, {addresses}')
         self.route_map.add_rule(f, slave_ids, function_codes, addresses)
         return f
 
@@ -42,10 +41,12 @@ class AbstractRequestHandler(BaseRequestHandler):
         try:
             while True:
                 try:
+                    logger.debug('try reading packet')
                     mbap_header = recv_exactly(self.request.recv, 7)
                     remaining = self.get_meta_data(mbap_header)['length'] - 1
                     request_pdu = recv_exactly(self.request.recv, remaining)
                 except ValueError:  # FIXME
+                    logger.debug('error reading packet')
                     return
 
                 response_adu = self.process(mbap_header + request_pdu)
@@ -67,7 +68,6 @@ class AbstractRequestHandler(BaseRequestHandler):
 
         response_pdu = self.execute_route(meta_data, request_pdu)
         response_adu = self.create_response_adu(meta_data, response_pdu)
-
         return response_adu
 
     def execute_route(self, meta_data, request_pdu):
@@ -81,17 +81,21 @@ class AbstractRequestHandler(BaseRequestHandler):
         """
         try:
             function = create_function_from_request_pdu(request_pdu)
+            logger.debug(f'function: {function}')
             results =\
                 function.execute(meta_data['unit_id'], self.server.route_map)
+            logger.debug(f'results: {results}')
 
             try:
                 # ReadFunction's use results of callbacks to build response
                 # PDU...
                 return function.create_response_pdu(results)
-            except TypeError:
+            except TypeError as error:
                 # ...other functions don't.
                 return function.create_response_pdu()
         except ModbusError as e:
+            logger.debug(f'ModbusError: {e!r}')
+            breakpoint()
             function_code = get_function_code_from_request_pdu(request_pdu)
             return pack_exception_pdu(function_code, e.error_code)
         except Exception as e:

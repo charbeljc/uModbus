@@ -5,6 +5,7 @@ from umodbus.route import Map
 from umodbus.server import AbstractRequestHandler, route
 from umodbus.utils import unpack_mbap, pack_mbap
 from umodbus.exceptions import ServerDeviceFailureError
+from logzero import logger
 
 
 def get_server(server_class, server_address, request_handler_class):
@@ -42,6 +43,7 @@ class RequestHandler(AbstractRequestHandler):
             transaction_id, protocol_id, length, unit_id = \
                 unpack_mbap(request_adu[:7])
         except struct.error:
+            logger.error('get-meta-data: bad data')
             raise ServerDeviceFailureError()
 
         return {

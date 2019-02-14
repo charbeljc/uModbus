@@ -69,7 +69,7 @@ from umodbus.exceptions import (error_code_to_exception_map,
                                 IllegalDataValueError, IllegalFunctionError,
                                 IllegalDataAddressError)
 from umodbus.utils import memoize, get_function_code_from_request_pdu
-
+from logzero import logger
 # Function related to data access.
 READ_COILS = 1
 READ_DISCRETE_INPUTS = 2
@@ -94,6 +94,11 @@ DIAGNOSTICS = 8
 GET_COMM_EVENT_COUNTER = 11
 GET_COM_EVENT_LOG = 12
 REPORT_SERVER_ID = 17
+
+DEBUG = False
+def debug(*args, **kw):
+    if DEBUG:
+        logger.debug(*args, **kw)
 
 
 def pdu_to_function_code_or_raise_error(resp_pdu):
@@ -358,7 +363,6 @@ class ReadCoils(ModbusFunction):
         """
         try:
             values = []
-
             for address in range(self.starting_address,
                                  self.starting_address + self.quantity):
                 endpoint = route_map.match(slave_id, self.function_code,
@@ -749,11 +753,13 @@ class ReadHoldingRegisters(ModbusFunction):
         :param eindpoint: Instance of modbus.route.Map.
         :return: Result of call to endpoint.
         """
+        debug(f'execute: {self.starting_address}, {self.quantity} - {self}')
         try:
             values = []
 
             for address in range(self.starting_address,
                                  self.starting_address + self.quantity):
+                debug(f'{address}')
                 endpoint = route_map.match(slave_id, self.function_code,
                                            address)
                 values.append(endpoint(slave_id=slave_id, address=address,
@@ -763,7 +769,8 @@ class ReadHoldingRegisters(ModbusFunction):
 
         # route_map.match() returns None if no match is found. Calling None
         # results in TypeError.
-        except TypeError:
+        except TypeError as error:
+            logger.error(f'error: {error}')
             raise IllegalDataAddressError()
 
 
@@ -1603,9 +1610,12 @@ class WriteMultipleRegisters(ModbusFunction):
         :param slave_id: Slave id.
         :param eindpoint: Instance of modbus.route.Map.
         """
+        debug(f'wmr.exec {self.function_code}')
         for index, value in enumerate(self.values):
             address = self.starting_address + index
+            debug(f'address:: {address}')
             endpoint = route_map.match(slave_id, self.function_code, address)
+            debug(f'endpoint: {endpoint}')
 
             try:
                 endpoint(slave_id=slave_id, address=address, value=value,
