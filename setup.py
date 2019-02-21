@@ -22,6 +22,7 @@ setup(name='uModbus',
       packages=[
           'umodbus',
           'umodbus.client',
+          'umodbus.client.asyncio',
           'umodbus.client.serial',
           'umodbus.server',
           'umodbus.server.serial',
