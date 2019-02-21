@@ -95,7 +95,6 @@ class AbstractRequestHandler(BaseRequestHandler):
                 return function.create_response_pdu()
         except ModbusError as e:
             logger.debug(f'ModbusError: {e!r}')
-            breakpoint()
             function_code = get_function_code_from_request_pdu(request_pdu)
             return pack_exception_pdu(function_code, e.error_code)
         except Exception as e:

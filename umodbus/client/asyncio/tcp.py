@@ -48,7 +48,7 @@ async def recv_exactly(reader, size, timeout):
 
     return response
 
-async def send_message(adu, reader, writer, timeout=None):
+async def send_message(adu, reader, writer, timeout=None, drain=False):
     """ Send ADU over socket to to server and return parsed response.
 
     :param adu: Request ADU.
@@ -60,7 +60,8 @@ async def send_message(adu, reader, writer, timeout=None):
     debug(f'writer: {writer}')
     debug(f'timeout: {timeout}')
     status = writer.write(adu)
-    await writer.drain()
+    if drain:
+        await writer.drain()
     debug(f'status: {status}')
 
     # Check exception ADU (which is shorter than all other responses) first.
