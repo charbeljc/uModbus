@@ -753,7 +753,7 @@ class ReadHoldingRegisters(ModbusFunction):
         :param eindpoint: Instance of modbus.route.Map.
         :return: Result of call to endpoint.
         """
-        debug(f'execute: {self.starting_address}, {self.quantity} - {self}')
+        logger.info('execute: %s, %s - %s', self.starting_address, self.quantity, self)
         try:
             values = []
 
